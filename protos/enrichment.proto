@@ -1,0 +1,16 @@
+syntax = "proto3";
+package enrichment;
+
+service EnrichmentService {
+  rpc Enrich(EnrichRequest) returns (EnrichResult);
+}
+
+message EnrichRequest {
+  string job_id = 1;
+  string raw_data = 2;
+}
+
+message EnrichResult {
+  string job_id = 1;
+  string enriched_data = 2;
+}

@@ -1,0 +1,173 @@
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: loadbalancer
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lb-network
+
+  enrichment-service:
+    build:
+      context: .
+      dockerfile: enrichment/Dockerfile
+    ports:
+      - "50052:50052"
+    environment:
+      ENRICHMENT_LATENCY: "3.0"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; ch=grpc.insecure_channel('localhost:50052'); stub=health_pb2_grpc.HealthStub(ch); r=stub.Check(health_pb2.HealthCheckRequest()); assert r.status==health_pb2.HealthCheckResponse.SERVING\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lb-network
+
+  worker-1:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    ports:
+      - "50051:50051"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: loadbalancer
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      ENRICHMENT_HOST: enrichment-service
+      ENRICHMENT_PORT: "50052"
+      WORKER_ID: worker-1
+      DEADLINE_PROPAGATION: "true"
+      LOCKING_MODE: pessimistic
+      BATCH_THRESHOLD: "10"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; ch=grpc.insecure_channel('localhost:50051'); stub=health_pb2_grpc.HealthStub(ch); r=stub.Check(health_pb2.HealthCheckRequest()); assert r.status==health_pb2.HealthCheckResponse.SERVING\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      enrichment-service:
+        condition: service_healthy
+    networks:
+      - lb-network
+
+  worker-2:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    ports:
+      - "50053:50051"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: loadbalancer
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      ENRICHMENT_HOST: enrichment-service
+      ENRICHMENT_PORT: "50052"
+      WORKER_ID: worker-2
+      DEADLINE_PROPAGATION: "true"
+      LOCKING_MODE: pessimistic
+      BATCH_THRESHOLD: "10"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; ch=grpc.insecure_channel('localhost:50051'); stub=health_pb2_grpc.HealthStub(ch); r=stub.Check(health_pb2.HealthCheckRequest()); assert r.status==health_pb2.HealthCheckResponse.SERVING\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      enrichment-service:
+        condition: service_healthy
+    networks:
+      - lb-network
+
+  worker-3:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    ports:
+      - "50054:50051"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: loadbalancer
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      ENRICHMENT_HOST: enrichment-service
+      ENRICHMENT_PORT: "50052"
+      WORKER_ID: worker-3
+      DEADLINE_PROPAGATION: "true"
+      LOCKING_MODE: pessimistic
+      BATCH_THRESHOLD: "10"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import grpc; from grpc_health.v1 import health_pb2, health_pb2_grpc; ch=grpc.insecure_channel('localhost:50051'); stub=health_pb2_grpc.HealthStub(ch); r=stub.Check(health_pb2.HealthCheckRequest()); assert r.status==health_pb2.HealthCheckResponse.SERVING\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      enrichment-service:
+        condition: service_healthy
+    networks:
+      - lb-network
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    command: ["sleep", "infinity"]
+    environment:
+      WORKER_ADDRESSES: "worker-1:50051,worker-2:50051,worker-3:50051"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: loadbalancer
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      ENRICHMENT_HOST: enrichment-service
+      ENRICHMENT_PORT: "50052"
+      BATCH_THRESHOLD: "10"
+    healthcheck:
+      test: ["CMD-SHELL", "echo healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      worker-1:
+        condition: service_healthy
+      worker-2:
+        condition: service_healthy
+      worker-3:
+        condition: service_healthy
+    networks:
+      - lb-network
+
+volumes:
+  pgdata:
+
+networks:
+  lb-network:
+    driver: bridge

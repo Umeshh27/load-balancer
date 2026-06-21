@@ -1,0 +1,6 @@
+grpcio==1.62.1
+grpcio-tools==1.62.1
+grpcio-health-checking==1.62.1
+protobuf==4.25.3
+asyncpg==0.29.0
+matplotlib==3.8.3

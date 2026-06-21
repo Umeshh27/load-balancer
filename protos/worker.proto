@@ -1,0 +1,21 @@
+syntax = "proto3";
+package worker;
+
+service WorkerService {
+  rpc ProcessJob(JobRequest) returns (JobResult);
+  rpc ProcessBatch(stream JobRequest) returns (stream JobResult);
+}
+
+message JobRequest {
+  string job_id = 1;
+  string batch_id = 2;
+  string payload = 3;
+}
+
+message JobResult {
+  string job_id = 1;
+  string batch_id = 2;
+  string status = 3;
+  string result_data = 4;
+  string worker_id = 5;
+}
