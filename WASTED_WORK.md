@@ -9,11 +9,11 @@ continues processing the request, wasting resources and writing stale data to th
 
 ## Test Configuration
 
-| Parameter | Value |
-|-----------|-------|
-| Client Deadline | 2 seconds |
-| Enrichment Service Latency | 3 seconds |
-| Deadline Propagation | **DISABLED** |
+| Parameter                  | Value        |
+| -------------------------- | ------------ |
+| Client Deadline            | 2 seconds    |
+| Enrichment Service Latency | 3 seconds    |
+| Deadline Propagation       | **DISABLED** |
 
 ## Observed Behavior
 
@@ -54,6 +54,7 @@ SELECT job_id, worker_id, created_at FROM results WHERE job_id = 'wasted-abc1234
 ## Fix
 
 See Phase 3: Deadline Propagation. The worker must:
+
 1. Extract remaining time from the incoming gRPC context
 2. Pass it as timeout to the Enrichment Service call
 3. Pass it as timeout to database queries
